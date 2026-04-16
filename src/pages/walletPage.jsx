@@ -8,35 +8,46 @@ function WalletPage() {
   const [amount, setAmount] = useState('');
   const [status, setStatus] = useState('');
   const [isMining, setIsMining] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const u = JSON.parse(localStorage.getItem("user"));
-    setUser(u);
-  }, []);
-
-  // 🔄 Refresh user after actions
-  const refreshUser = async () => {
+  // 🔥 Fetch latest user data using privateKey
+  const refreshUserWithKey = async (privateKey) => {
     try {
       const res = await fetch(`${BASE_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ privateKey: user.privateKey }),
+        body: JSON.stringify({ privateKey }),
       });
 
       const data = await res.json();
 
+      // ⚠️ adjust this based on your backend response
       if (!data.status) {
         setUser(data);
         localStorage.setItem("user", JSON.stringify(data));
       }
 
     } catch (err) {
-      console.error(err);
+      console.error("Refresh user error:", err);
     }
   };
 
+  // 🔄 Load user from localStorage + sync with backend
+  useEffect(() => {
+    const u = JSON.parse(localStorage.getItem("user"));
+
+    if (u) {
+      setUser(u);
+      refreshUserWithKey(u.privateKey); // 🔥 sync with backend
+    }
+
+    setLoading(false);
+  }, []);
+
   // 💸 Send Transaction
   const sendTx = async () => {
+    if (!user) return;
+
     if (!receiver || !amount) {
       setStatus("Enter receiver and amount");
       return;
@@ -56,16 +67,18 @@ function WalletPage() {
       const data = await res.json();
       setStatus(data.message);
 
-      await refreshUser(); // 🔥 update wallet
+      await refreshUserWithKey(user.privateKey); // 🔥 update wallet
 
     } catch (err) {
       console.error(err);
-      setStatus("Transaction failed ");
+      setStatus("Transaction failed");
     }
   };
 
   // ⛏️ Mine Block
   const mine = async () => {
+    if (!user) return;
+
     setIsMining(true);
     setStatus("Mining... ⛏️");
 
@@ -79,16 +92,20 @@ function WalletPage() {
       const data = await res.json();
       setStatus(data.message);
 
-      await refreshUser(); // 🔥 update wallet after mining
+      await refreshUserWithKey(user.privateKey); // 🔥 update wallet
 
     } catch (err) {
       console.error(err);
-      setStatus("Mining failed ");
+      setStatus("Mining failed");
     }
 
     setIsMining(false);
   };
 
+  // ⏳ Loading state
+  if (loading) return <p>Loading...</p>;
+
+  // 🔐 Not logged in
   if (!user) return <p>Please login first</p>;
 
   return (
