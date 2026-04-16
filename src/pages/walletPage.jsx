@@ -10,6 +10,44 @@ function WalletPage() {
   const [isMining, setIsMining] = useState(false);
   const [loading, setLoading] = useState(true);
 
+    // 🔄 Load user from localStorage + sync with backend
+    useEffect(() => {
+      const storedUser = JSON.parse(localStorage.getItem("user"));
+
+      if (!storedUser) {
+        setLoading(false); // ✅ IMPORTANT
+        return;
+      }
+
+      fetch(`${BASE_URL}/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          privateKey: storedUser.privateKey
+        })
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.status !== "error") {
+            setUser(data);
+            localStorage.setItem("user", JSON.stringify(data));
+            // console.log(user);
+          } else {
+            setUser(null);
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          setUser(null);
+        })
+        .finally(() => {
+          setLoading(false); // ✅ THIS FIXES EVERYTHING
+        });
+
+    }, []);
+
   // 🔥 Fetch latest user data using privateKey
   const refreshUserWithKey = async (privateKey) => {
     try {
@@ -31,18 +69,6 @@ function WalletPage() {
       console.error("Refresh user error:", err);
     }
   };
-
-  // 🔄 Load user from localStorage + sync with backend
-  useEffect(() => {
-    const u = JSON.parse(localStorage.getItem("user"));
-
-    if (u) {
-      setUser(u);
-      refreshUserWithKey(u.privateKey); // 🔥 sync with backend
-    }
-
-    setLoading(false);
-  }, []);
 
   // 💸 Send Transaction
   const sendTx = async () => {

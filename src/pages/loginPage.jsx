@@ -16,14 +16,11 @@ function LoginPage() {
 
       const data = await res.json();
 
-      if (data.status === "error") {
+      if (data.status == "error") {
         setStatus(data.message);
       } else {
         localStorage.setItem("user", JSON.stringify(data));
         setStatus("Login successful");
-
-        // optional: redirect after login
-        // window.location.href = "/wallet";
       }
 
     } catch (err) {
