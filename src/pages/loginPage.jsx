@@ -1,23 +1,34 @@
 import { useState } from 'react';
 
+const BASE_URL = "https://mycoin-server1.onrender.com";
+
 function LoginPage() {
   const [privateKey, setPrivateKey] = useState('');
   const [status, setStatus] = useState('');
 
   const login = async () => {
-    const res = await fetch('https://mycoin-server1.onrender.com/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ privateKey }),
-    });
+    try {
+      const res = await fetch(`${BASE_URL}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ privateKey }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (data.status === "error") {
-      setStatus(data.message);
-    } else {
-      localStorage.setItem("user", JSON.stringify(data));
-      setStatus("Login successful ✅");
+      if (data.status === "error") {
+        setStatus(data.message);
+      } else {
+        localStorage.setItem("user", JSON.stringify(data));
+        setStatus("Login successful");
+
+        // optional: redirect after login
+        // window.location.href = "/wallet";
+      }
+
+    } catch (err) {
+      console.error(err);
+      setStatus("Server error");
     }
   };
 
@@ -32,7 +43,9 @@ function LoginPage() {
         onChange={(e) => setPrivateKey(e.target.value)}
       />
 
-      <button className="btn" onClick={login}>Login</button>
+      <button className="btn" onClick={login}>
+        Login
+      </button>
 
       <div className="status">{status}</div>
     </div>

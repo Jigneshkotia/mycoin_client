@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 
+const BASE_URL = "https://mycoin-server1.onrender.com";
+
 function WalletPage() {
   const [user, setUser] = useState(null);
   const [receiver, setReceiver] = useState('');
@@ -12,31 +14,78 @@ function WalletPage() {
     setUser(u);
   }, []);
 
-  const sendTx = async () => {
-    const res = await fetch('https://mycoin-server1.onrender.com/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sender: user.privateKey,
-        receiver,
-        amount: parseFloat(amount)
-      }),
-    });
+  // 🔄 Refresh user after actions
+  const refreshUser = async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ privateKey: user.privateKey }),
+      });
 
-    const data = await res.json();
-    setStatus(data.message);
+      const data = await res.json();
+
+      if (!data.status) {
+        setUser(data);
+        localStorage.setItem("user", JSON.stringify(data));
+      }
+
+    } catch (err) {
+      console.error(err);
+    }
   };
 
+  // 💸 Send Transaction
+  const sendTx = async () => {
+    if (!receiver || !amount) {
+      setStatus("Enter receiver and amount");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${BASE_URL}/add_tx`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sender: user.privateKey,
+          receiver,
+          amount: parseFloat(amount)
+        }),
+      });
+
+      const data = await res.json();
+      setStatus(data.message);
+
+      await refreshUser(); // 🔥 update wallet
+
+    } catch (err) {
+      console.error(err);
+      setStatus("Transaction failed ");
+    }
+  };
+
+  // ⛏️ Mine Block
   const mine = async () => {
     setIsMining(true);
-    const res = await fetch('https://mycoin-server1.onrender.com/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ privateKey: user.privateKey }),
-    });
+    setStatus("Mining... ⛏️");
 
-    const data = await res.json();
-    setStatus(data.message);
+    try {
+      const res = await fetch(`${BASE_URL}/mine`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ privateKey: user.privateKey }),
+      });
+
+      const data = await res.json();
+      setStatus(data.message);
+
+      await refreshUser(); // 🔥 update wallet after mining
+
+    } catch (err) {
+      console.error(err);
+      setStatus("Mining failed ");
+    }
+
     setIsMining(false);
   };
 
@@ -54,13 +103,24 @@ function WalletPage() {
       <div className="card">
         <h3>Send Transaction</h3>
 
-        <input className="input" placeholder="Receiver"
-          value={receiver} onChange={e => setReceiver(e.target.value)} />
+        <input
+          className="input"
+          placeholder="Receiver Public Key"
+          value={receiver}
+          onChange={e => setReceiver(e.target.value)}
+        />
 
-        <input className="input" placeholder="Amount"
-          value={amount} onChange={e => setAmount(e.target.value)} />
+        <input
+          className="input"
+          placeholder="Amount"
+          type="number"
+          value={amount}
+          onChange={e => setAmount(e.target.value)}
+        />
 
-        <button className="btn" onClick={sendTx}>Send</button>
+        <button className="btn" onClick={sendTx}>
+          Send
+        </button>
       </div>
 
       {user.isFullNode && (
