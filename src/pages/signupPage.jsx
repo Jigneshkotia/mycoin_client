@@ -7,7 +7,7 @@ function SignupPage() {
   const [status, setStatus] = useState('');
 
   const signup = async () => {
-    const res = await fetch('http://localhost:8080/signup', {
+    const res = await fetch('https://mycoin-server1.onrender.com/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ privateKey, publicKey, isFullNode }),

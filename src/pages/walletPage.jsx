@@ -13,7 +13,7 @@ function WalletPage() {
   }, []);
 
   const sendTx = async () => {
-    const res = await fetch('http://localhost:8080/add_tx', {
+    const res = await fetch('https://mycoin-server1.onrender.com/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -29,7 +29,7 @@ function WalletPage() {
 
   const mine = async () => {
     setIsMining(true);
-    const res = await fetch('http://localhost:8080/mine', {
+    const res = await fetch('https://mycoin-server1.onrender.com/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ privateKey: user.privateKey }),

@@ -4,7 +4,7 @@ function BlockchainPage() {
   const [blocks, setBlocks] = useState([]);
 
   useEffect(() => {
-    fetch('http://localhost:8080/blockchain')
+    fetch('https://mycoin-server1.onrender.com/')
       .then(res => res.json())
       .then(data => setBlocks(data.data || []));
   }, []);
