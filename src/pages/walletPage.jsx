@@ -1,4 +1,8 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import Alert from '../components/Alert';
+import CopyableText from '../components/CopyableText';
+import { IconWallet, IconSend, IconZap, IconLock, IconLoader } from '../components/Icon';
 
 const BASE_URL = "https://mycoin-server1.onrender.com";
 
@@ -7,15 +11,17 @@ function WalletPage() {
   const [receiver, setReceiver] = useState('');
   const [amount, setAmount] = useState('');
   const [status, setStatus] = useState('');
+  const [statusType, setStatusType] = useState('info');
   const [isMining, setIsMining] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [isSending, setIsSending] = useState(false);
+  // Only wait on the network round-trip when there's a stored key to verify.
+  const [loading, setLoading] = useState(() => !!localStorage.getItem("user"));
 
-    // 🔄 Load user from localStorage + sync with backend
+    // Load user from localStorage + sync with backend
     useEffect(() => {
       const storedUser = JSON.parse(localStorage.getItem("user"));
 
       if (!storedUser) {
-        setLoading(false); // ✅ IMPORTANT
         return;
       }
 
@@ -33,7 +39,6 @@ function WalletPage() {
           if (data.status !== "error") {
             setUser(data);
             localStorage.setItem("user", JSON.stringify(data));
-            // console.log(user);
           } else {
             setUser(null);
           }
@@ -43,12 +48,12 @@ function WalletPage() {
           setUser(null);
         })
         .finally(() => {
-          setLoading(false); // ✅ THIS FIXES EVERYTHING
+          setLoading(false);
         });
 
     }, []);
 
-  // 🔥 Fetch latest user data using privateKey
+  // Fetch latest user data using privateKey
   const refreshUserWithKey = async (privateKey) => {
     try {
       const res = await fetch(`${BASE_URL}/login`, {
@@ -59,7 +64,7 @@ function WalletPage() {
 
       const data = await res.json();
 
-      // ⚠️ adjust this based on your backend response
+      // adjust this based on your backend response
       if (!data.status) {
         setUser(data);
         localStorage.setItem("user", JSON.stringify(data));
@@ -70,15 +75,17 @@ function WalletPage() {
     }
   };
 
-  // 💸 Send Transaction
+  // Send transaction
   const sendTx = async () => {
     if (!user) return;
 
     if (!receiver || !amount) {
       setStatus("Enter receiver and amount");
+      setStatusType('error');
       return;
     }
 
+    setIsSending(true);
     try {
       const res = await fetch(`${BASE_URL}/add_tx`, {
         method: 'POST',
@@ -92,21 +99,25 @@ function WalletPage() {
 
       const data = await res.json();
       setStatus(data.message);
+      setStatusType(data.status === 'error' ? 'error' : 'success');
 
-      await refreshUserWithKey(user.privateKey); // 🔥 update wallet
+      await refreshUserWithKey(user.privateKey);
 
     } catch (err) {
       console.error(err);
       setStatus("Transaction failed");
+      setStatusType('error');
     }
+    setIsSending(false);
   };
 
-  // ⛏️ Mine Block
+  // Mine block
   const mine = async () => {
     if (!user) return;
 
     setIsMining(true);
-    setStatus("Mining... ⛏️");
+    setStatus("Mining...");
+    setStatusType('info');
 
     try {
       const res = await fetch(`${BASE_URL}/mine`, {
@@ -117,65 +128,116 @@ function WalletPage() {
 
       const data = await res.json();
       setStatus(data.message);
+      setStatusType(data.status === 'error' ? 'error' : 'success');
 
-      await refreshUserWithKey(user.privateKey); // 🔥 update wallet
+      await refreshUserWithKey(user.privateKey);
 
     } catch (err) {
       console.error(err);
       setStatus("Mining failed");
+      setStatusType('error');
     }
 
     setIsMining(false);
   };
 
-  // ⏳ Loading state
-  if (loading) return <p>Loading...</p>;
+  // Loading state
+  if (loading) {
+    return (
+      <div className="card state-card">
+        <IconLoader size={22} className="spin" />
+        <p>Loading wallet...</p>
+      </div>
+    );
+  }
 
-  // 🔐 Not logged in
-  if (!user) return <p>Please login first</p>;
+  // Not logged in
+  if (!user) {
+    return (
+      <div className="card state-card">
+        <span className="card-icon"><IconLock size={20} /></span>
+        <h2>Sign in required</h2>
+        <p>Log in with your private key to view your wallet.</p>
+        <Link to="/login" className="btn btn-primary">Go to login</Link>
+      </div>
+    );
+  }
 
   return (
     <div>
       <div className="card">
-        <h2>Wallet</h2>
-        <p><b>Public:</b> {user.publicKey}</p>
-        <p><b>Confirmed:</b> {user.confirmed_coins}</p>
-        <p><b>Pending:</b> {user.pending_coins}</p>
+        <div className="card-header-row">
+          <span className="card-icon"><IconWallet size={20} /></span>
+          <h2>Wallet</h2>
+        </div>
+
+        <div className="key-row">
+          <span className="key-label">Public key</span>
+          <CopyableText value={user.publicKey} label="public key" />
+        </div>
+
+        <div className="stat-grid">
+          <div className="stat-card">
+            <span className="stat-label">Confirmed</span>
+            <span className="stat-value">{user.confirmed_coins}</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-label">Pending</span>
+            <span className="stat-value stat-value-muted">{user.pending_coins}</span>
+          </div>
+        </div>
       </div>
 
       <div className="card">
-        <h3>Send Transaction</h3>
+        <div className="card-header-row">
+          <span className="card-icon"><IconSend size={20} /></span>
+          <h3>Send transaction</h3>
+        </div>
 
-        <input
-          className="input"
-          placeholder="Receiver Public Key"
-          value={receiver}
-          onChange={e => setReceiver(e.target.value)}
-        />
+        <div className="field">
+          <label className="label" htmlFor="receiver">Receiver public key</label>
+          <input
+            id="receiver"
+            className="input"
+            placeholder="Receiver public key"
+            value={receiver}
+            onChange={e => setReceiver(e.target.value)}
+          />
+        </div>
 
-        <input
-          className="input"
-          placeholder="Amount"
-          type="number"
-          value={amount}
-          onChange={e => setAmount(e.target.value)}
-        />
+        <div className="field">
+          <label className="label" htmlFor="amount">Amount</label>
+          <input
+            id="amount"
+            className="input"
+            placeholder="0.00"
+            type="number"
+            value={amount}
+            onChange={e => setAmount(e.target.value)}
+          />
+        </div>
 
-        <button className="btn" onClick={sendTx}>
-          Send
+        <button className="btn btn-primary" onClick={sendTx} disabled={isSending}>
+          {isSending ? <IconLoader size={16} className="spin" /> : null}
+          {isSending ? 'Sending...' : 'Send'}
         </button>
       </div>
 
       {user.isFullNode && (
         <div className="card">
-          <h3>Mining</h3>
-          <button className="btn" onClick={mine} disabled={isMining}>
-            {isMining ? "Mining..." : "Mine Block ⛏️"}
+          <div className="card-header-row">
+            <span className="card-icon"><IconZap size={20} /></span>
+            <h3>Mining</h3>
+          </div>
+          <p className="card-subtitle">Mine a block to confirm pending transactions and earn rewards.</p>
+          <button className="btn btn-secondary" onClick={mine} disabled={isMining}>
+            {isMining ? <IconLoader size={16} className="spin" /> : null}
+            {isMining ? 'Mining...' : 'Mine block'}
           </button>
         </div>
       )}
 
-      <div className="status">{status}</div>
+      <Alert type={statusType}>{status}</Alert>
     </div>
   );
 }
